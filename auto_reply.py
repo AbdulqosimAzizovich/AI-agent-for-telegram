@@ -2,6 +2,7 @@ import os
 import asyncio
 from aiohttp import web
 from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 from dotenv import load_dotenv
 
 import google.generativeai as genai
@@ -26,7 +27,9 @@ gemini_model = genai.GenerativeModel('gemini-flash-latest')
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 claude_client = AsyncAnthropic(api_key=CLAUDE_API_KEY)
 
-client = TelegramClient(session_name, api_id, api_hash)
+session_string = os.getenv("TELEGRAM_SESSION_STRING")
+
+client = TelegramClient(StringSession(session_string), api_id, api_hash)
 oqilgan_xabarlar = {}
 
 @client.on(events.MessageRead(inbox=True))
