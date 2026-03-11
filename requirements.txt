@@ -4,14 +4,9 @@ mcp[cli]>=1.4.1
 nest-asyncio>=1.6.0
 python-dotenv>=1.1.0
 python-json-logger>=3.3.0
-<<<<<<< HEAD
 telethon>=1.39.0 
 
 google-generativeai
 openai
 anthropic
 python-dotenv
-=======
-qrcode>=8.2
-telethon>=1.42.0
->>>>>>> 26b1287a5b1fd9d0de5101b457eaba4086b2975d
