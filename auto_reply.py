@@ -100,7 +100,7 @@ Foydalanuvchining YANGI xabari: {yangi_xabar}"""
         return "Tarmoqda nosozlik."
 
 # --- 3. TELEGRAM HODISALAR ---
-@client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
+@client.on(events.NewMessage(func=lambda e: e.is_private))
 async def handler(event):
     global bot_is_active
     chat_id = event.chat_id
@@ -108,22 +108,22 @@ async def handler(event):
     sender = await event.get_sender()
     sender_id = event.sender_id
 
-    # O'zingiz yozgan xabarlar (Masofaviy boshqaruv komandalari)
+    # 1. O'ZINGIZ YOZGAN XABARLAR (KOMANDALAR)
     if event.out:
         if event.text == '.uxla':
             bot_is_active = False
-            # 1. Yozgan '.uxla' buyrug'ingizni chatdan o'chirib tashlaydi (hech kim sezmaydi)
-            await event.delete()
-            # 2. 'me' (Saved Messages) ga maxsus hisobot yuboradi
+            await event.delete() # Xabarni o'chirib tashlaydi
             await client.send_message('me', "💤 Bot uxlash rejimiga o'tdi. AI hozircha hech kimga aralashmaydi.")
             return
-            
         elif event.text == '.uygon':
             bot_is_active = True
-            await event.delete()
+            await event.delete() # Xabarni o'chirib tashlaydi
             await client.send_message('me', "🚀 Bot uyg'ondi! Avto-javoblar tizimi faollashdi.")
             return
+        # O'zingiz yozgan boshqa oddiy xabarlarga AI aralashmaydi
+        return
 
+    # 2. TASHQARIDAN KELGAN XABARLAR UCHUN TEKSHIRUV
     # Agar bot uxlayotgan bo'lsa, xabarlarni o'qib jim turaveradi
     if not bot_is_active:
         return
@@ -133,15 +133,18 @@ async def handler(event):
         print("📁 Media (ovozli, rasm, stiker) keldi. Skip qilindi.")
         return
 
+    # Botlarni skip qilish
     if sender.bot:
         return 
         
+    # Begonalarni tekshirish
     if not sender.contact:
         if sender_id not in javob_berilgan_begonalar:
             await event.reply("Assalomu alaykum! Men hozir biroz bandman. Iltimos, xabaringizni yozib qoldiring, bo'shashim bilan o'zim sizga aloqaga chiqaman. 🤝")
             javob_berilgan_begonalar.add(sender_id)
         return 
 
+    # Vaqtni tekshirish
     hozirgi_vaqt = datetime.now(ZoneInfo("Asia/Tashkent"))
     if not (8 <= hozirgi_vaqt.hour < 20):
         return 
@@ -159,7 +162,7 @@ async def handler(event):
     except Exception:
         pass
 
-    # "12-xabar muammosi": Agar u eski xabarga Reply qilib yozayotgan bo'lsa
+    # "12-xabar muammosi": Reply qilingan xabarni aniqlash
     reply_matni = ""
     if event.is_reply:
         eski_xabar = await event.get_reply_message()
@@ -173,14 +176,14 @@ async def handler(event):
     await event.reply(javob)
     print("✅ AI javob yubordi!")
 
-    # Xotiraga saqlash jarayoni (10 ta xabargacha ushlab turamiz)
+    # Xotiraga saqlash
     if sender_id not in suhbat_xotirasi:
         suhbat_xotirasi[sender_id] = []
     
     suhbat_xotirasi[sender_id].append({"kim": "Foydalanuvchi", "matn": yangi_matn})
     suhbat_xotirasi[sender_id].append({"kim": "AI (Siz)", "matn": javob})
 
-    if len(suhbat_xotirasi[sender_id]) > 20: # 10 juftlik = 20 ta xabar
+    if len(suhbat_xotirasi[sender_id]) > 20: 
         suhbat_xotirasi[sender_id] = suhbat_xotirasi[sender_id][-20:]
 
 # --- 4. RENDER SERVER ---
