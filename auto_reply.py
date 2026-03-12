@@ -112,14 +112,19 @@ async def handler(event):
     if event.out:
         if event.text == '.uxla':
             bot_is_active = False
-            await event.reply("💤 Bot uxlash rejimiga o'tdi. Endi AI hech kimga aralashmaydi.")
+            # 1. Yozgan '.uxla' buyrug'ingizni chatdan o'chirib tashlaydi (hech kim sezmaydi)
+            await event.delete()
+            # 2. 'me' (Saved Messages) ga maxsus hisobot yuboradi
+            await client.send_message('me', "💤 Bot uxlash rejimiga o'tdi. AI hozircha hech kimga aralashmaydi.")
             return
+            
         elif event.text == '.uygon':
             bot_is_active = True
-            await event.reply("🚀 Bot uyg'ondi! Avto-javoblar tizimi faollashdi.")
+            await event.delete()
+            await client.send_message('me', "🚀 Bot uyg'ondi! Avto-javoblar tizimi faollashdi.")
             return
 
-    # Agar bot uxlayotgan bo'lsa, hech narsa qilmaydi
+    # Agar bot uxlayotgan bo'lsa, xabarlarni o'qib jim turaveradi
     if not bot_is_active:
         return
 
