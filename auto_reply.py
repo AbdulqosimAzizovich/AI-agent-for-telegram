@@ -1,5 +1,7 @@
 import os
 import asyncio
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from aiohttp import web
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
@@ -9,15 +11,13 @@ import google.generativeai as genai
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
 
-# .env dagi barcha ma'lumotlarni yuklash
 load_dotenv()
 
 # --- 1. MA'LUMOTLARNI .ENV DAN OLISH ---
 api_id = int(os.getenv("TELEGRAM_API_ID"))
 api_hash = os.getenv("TELEGRAM_API_HASH")
-session_name = os.getenv("TELEGRAM_SESSION_NAME", "telegram_session")
+session_string = os.getenv("TELEGRAM_SESSION_STRING")
 
-# API Kalitlar (endi xavfsiz holatda .env dan olinadi)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
@@ -27,8 +27,6 @@ gemini_model = genai.GenerativeModel('gemini-flash-latest')
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 claude_client = AsyncAnthropic(api_key=CLAUDE_API_KEY)
 
-session_string = os.getenv("TELEGRAM_SESSION_STRING")
-
 client = TelegramClient(StringSession(session_string), api_id, api_hash)
 oqilgan_xabarlar = {}
 
@@ -36,12 +34,10 @@ oqilgan_xabarlar = {}
 async def read_handler(event):
     oqilgan_xabarlar[event.chat_id] = event.max_id
 
-# .env dagi vergul bilan yozilgan matnni raqamli ro'yxatga (list) aylantiruvchi yordamchi funksiya
 def parse_ids(env_var_name):
     env_val = os.getenv(env_var_name, "")
     return [int(x.strip()) for x in env_val.split(",") if x.strip().isdigit()]
 
-# ID larni avtomatik o'qib olish
 DOSTLAR = parse_ids("DOSTLAR")
 ISHXONA = parse_ids("ISHXONA")
 
@@ -52,7 +48,7 @@ async def get_ai_answer(text, sender_id):
     elif sender_id in ISHXONA:
         uslub = "Sen mening o'rnimda hamkasbim bilan yozishyapsan. Jiddiy, rasmiy va faqat ish yuzasidan qisqa javob ber. O'zingni AI deb tanitma."
     else:
-        uslub = "Sen mening o'rnimda begona yoki oddiy tanishim bilan yozishyapsan. Neytral, qisqa va aniq javob ber. O'zingni AI deb tanitma."
+        uslub = "Sen mening o'rnimda oddiy tanishim bilan yozishyapsan. Neytral, qisqa va aniq javob ber. O'zingni AI deb tanitma."
 
     prompt = f"""{uslub}
 QAT'IY QOIDALAR:
@@ -88,14 +84,30 @@ Foydalanuvchi xabari: {text}"""
     except Exception:
         return "Tarmoqda nosozlik."
 
-# --- 3. TELEGRAM HODISALAR ---
+# --- 3. TELEGRAM HODISALAR (YANGILANGAN FILTRLAR BILAN) ---
 @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
 async def handler(event):
+    # 1-FILTR: Vaqtni tekshirish (Toshkent vaqti bilan 08:00 dan 20:00 gacha)
+    hozirgi_vaqt = datetime.now(ZoneInfo("Asia/Tashkent"))
+    if not (8 <= hozirgi_vaqt.hour < 20):
+        # Agar soat 08:00 dan erta yoki 20:00 dan kech bo'lsa, bot umuman aralashmaydi
+        return 
+
+    # 2-FILTR: Yuboruvchini tekshirish (Bot va Kontaktlar)
+    sender = await event.get_sender()
+    
+    if sender.bot:
+        return # Agar yozgan narsa bot bo'lsa, javob qaytarmaydi
+        
+    if not sender.contact:
+        return # Agar yozgan odam sizning kontaktlaringiz (telefon kitobingiz) da yo'q bo'lsa, javob qaytarmaydi
+
+    # Agar barcha tekshiruvlardan o'tsa, asosiy jarayon boshlanadi
     chat_id = event.chat_id
     xabar_id = event.id
     sender_id = event.sender_id
     
-    print(f"\n📨 Yangi xabar. ID: {sender_id}")
+    print(f"\n📨 Yangi xabar keldi (Kontakt). ID: {sender_id}")
     await asyncio.sleep(12)
 
     if oqilgan_xabarlar.get(chat_id, 0) >= xabar_id:
