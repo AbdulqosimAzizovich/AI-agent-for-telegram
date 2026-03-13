@@ -24,6 +24,13 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 
+# LOG KANAL ID'sini olish (Agar .env da yo'q bo'lsa, me'ga jo'natadi)
+log_env = os.getenv("LOG_CHAT_ID", "me")
+try:
+    LOG_CHAT_ID = int(log_env)
+except ValueError:
+    LOG_CHAT_ID = 'me'
+
 genai.configure(api_key=GEMINI_API_KEY)
 gemini_model = genai.GenerativeModel('gemini-flash-latest')
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
@@ -31,19 +38,16 @@ claude_client = AsyncAnthropic(api_key=CLAUDE_API_KEY)
 
 client = TelegramClient(StringSession(session_string), api_id, api_hash)
 
-# --- XOTIRA VA HOLATLAR ---
 oqilgan_xabarlar = {}
 javob_berilgan_begonalar = set()
 javob_berilgan_boshliqlar = set()
-bloklangan_chatlar = set() # Moliyaviy suhbat sababli AI aralashmaydigan chatlar
+bloklangan_chatlar = set() 
 suhbat_xotirasi = {}
 bot_is_active = True
 
-# --- XABAR O'QILGANDA BLOKNI YECHISH (Yangi mantiq) ---
 @client.on(events.MessageRead(inbox=True))
 async def read_handler(event):
     oqilgan_xabarlar[event.chat_id] = event.max_id
-
 
 def parse_ids(env_var_name):
     env_val = os.getenv(env_var_name, "")
@@ -78,7 +82,7 @@ QAT'IY QOIDALAR:
 3. Agar u shunchaki salomlashsa, faqat qisqa salom alik qil.
 4. MOLIYA: Agar maktubda raqamlar, pullar, narx yoki qandaydir miqdor haqida gap ketsa, hech qachon "Ha" deb rozi bo'lma va tasdiqlama.
 
-[Oxirgi xabarlar tarixi - suhbat dinamikasi uchun]:
+[Oxirgi xabarlar tarixi]:
 {tarix_matni}
 {reply_matni}
 
@@ -109,7 +113,7 @@ Foydalanuvchining YANGI xabari: {yangi_xabar}"""
     except Exception:
         return "Tarmoqda nosozlik."
 
-# --- 3. TELEGRAM HODISALAR VA FILTRLAR ---
+# --- 3. TELEGRAM HODISALAR ---
 @client.on(events.NewMessage(func=lambda e: e.is_private))
 async def handler(event):
     global bot_is_active
@@ -118,29 +122,37 @@ async def handler(event):
     sender = await event.get_sender()
     sender_id = event.sender_id
     
-    # Suhbatdoshning ismini aniqlash (Hisobotlar uchun)
     chat_info = await event.get_chat()
     ism = getattr(chat_info, 'first_name', '') or ''
     familiya = getattr(chat_info, 'last_name', '') or ''
     toya_ism = f"{ism} {familiya}".strip() or "Noma'lum foydalanuvchi"
 
-    # --- O'ZINGIZ YOZGAN XABARLARDA BLOKNI YECHISH ---
+    # --- KOMANDALAR VA BOSHQARUV ---
     if event.out:
-        if chat_id in bloklangan_chatlar:
-            bloklangan_chatlar.remove(chat_id)
-            # Saved Messages'ga blok yechilgani haqida hisobot:
-            await client.send_message('me', f"🔓 **BLOK YECHILDI:** Siz {toya_ism} (ID: {chat_id}) ga o'zingiz javob yozganingiz uchun, bu chatda AI yana ishga tushdi.")
-
-        if event.text == '.uxla':
+        matn = event.text.lower().strip()
+        
+        if matn == '.uxla':
             bot_is_active = False
             await event.delete()
-            await client.send_message('me', "💤 **Bot uxlash rejimiga o'tdi.** AI hozircha hech kimga aralashmaydi.")
+            await client.send_message(LOG_CHAT_ID, "💤 **Bot uxlash rejimiga o'tdi.** Barcha chatlarda AI to'xtatildi.")
             return
-        elif event.text == '.uygon':
+        elif matn == '.uygon':
             bot_is_active = True
             await event.delete()
-            await client.send_message('me', "🚀 **Bot uyg'ondi!** Avto-javoblar tizimi faollashdi.")
+            await client.send_message(LOG_CHAT_ID, "🚀 **Bot uyg'ondi!** Tizim yana faol.")
             return
+        elif matn == '.ai_on':
+            if chat_id in bloklangan_chatlar:
+                bloklangan_chatlar.remove(chat_id)
+            await event.delete()
+            await client.send_message(LOG_CHAT_ID, f"🟢 **AI YOQILDI:** {toya_ism} (ID: {chat_id}) bilan suhbatda AI ishlashga ruxsat oldi.")
+            return
+        elif matn == '.ai_off':
+            bloklangan_chatlar.add(chat_id)
+            await event.delete()
+            await client.send_message(LOG_CHAT_ID, f"🔴 **AI O'CHIRILDI:** {toya_ism} (ID: {chat_id}) bilan suhbat AI uchun majburiy bloklandi.")
+            return
+        # Diqqat: Oddiy javob yozganingizda endi avtomatik blokdan chiqib ketmaydi!
         return
 
     if not bot_is_active or chat_id in bloklangan_chatlar:
@@ -152,26 +164,23 @@ async def handler(event):
     if getattr(sender, 'bot', False):
         return 
 
-    # --- BOSHLIQLAR UCHUN (VIP Begonalar) ---
     if sender_id in BOSHLIQLAR:
         if sender_id not in javob_berilgan_boshliqlar:
             await event.reply("Assalomu alaykum. Xabaringizni qabul qildim. Hozir biroz ish jarayonida edim, tez orada o'zim siz bilan bog'lanaman. Hurmat bilan!")
             javob_berilgan_boshliqlar.add(sender_id)
-            await client.send_message('me', f"👔 **Rahbariyat:** {toya_ism} (ID: {sender_id}) yozdi. Muloyim avto-javob yuborildi.")
+            await client.send_message(LOG_CHAT_ID, f"👔 **Rahbariyat:** {toya_ism} (ID: {sender_id}) ga muloyim avto-javob yuborildi.")
         return
 
-    # --- BEGONALAR UCHUN (Standart muloyim) ---
     if not getattr(sender, 'contact', False):
         if sender_id not in javob_berilgan_begonalar:
             await event.reply("Assalomu alaykum. Xabaringizni ko'rdim. Bo'shashim bilan o'zim aloqaga chiqaman.")
             javob_berilgan_begonalar.add(sender_id)
-            await client.send_message('me', f"👤 **Begona:** {toya_ism} (ID: {sender_id}) yozdi. Standart avto-javob yuborildi.")
+            await client.send_message(LOG_CHAT_ID, f"👤 **Begona:** {toya_ism} (ID: {sender_id}) ga standart avto-javob yuborildi.")
         return
 
-    # --- KONTAKTLAR UCHUN MOLIYAVIY XAVFSIZLIK (20 SONIYA KUTISH) ---
+    # --- MOLIYAVIY XAVFSIZLIK ---
     moliyaviy_sozlar = ["pul", "qarz", "dollar", "so'm", "som", "kredit", "plastik", "karta", "payme", "click", "narx", "summa", "hisob", "avans", "oylik", "ming"]
     xabar_matni = event.text.lower()
-    
     is_finance = any(soz in xabar_matni for soz in moliyaviy_sozlar) or bool(re.search(r'\d+\s*k\b', xabar_matni))
 
     if is_finance:
@@ -188,37 +197,29 @@ async def handler(event):
             pass
             
         blok_javoblari = [
-            "Assalomu alaykum. Men u kishining virtual yordamchisiman (shu paytgacha men bilan yozishganingiz uchun xabarlaringiz 'o'qilmagan' ko'rinishida turibdi). Moliyaviy va hisob-kitob masalalarini faqat o'zlari hal qiladilar. Shuni ma'lum qilamanki, men hozir blok rejimiga o'tdim va keyingi xabarlaringizga javob bera olmayman. Barcha ma'lumotlarni yozib oldim, bo'shashlari bilan o'zlari sizga aloqaga chiqadilar. 🤝",
-            
-            "Assalomu alaykum. Siz u kishining shaxsiy sun'iy intellekt yordamchisi bilan suhbatlashyapsiz (xabarlaringiz o'qilmagan bo'lib turishining sababi ham shu). Moliyaviy masalalarga aralashish huquqim yo'q. Dastur qoidasiga ko'ra, ushbu chatda ishlashni to'xtatdim va boshqa savollarga javob qaytarmayman. Xabaringiz o'zlariga yetkazildi, tez orada o'zlari bog'lanadilar. 🤝"
+            "🤖 [Avto-javob]: Assalomu alaykum. Men u kishining virtual yordamchisiman (shu paytgacha men bilan yozishganingiz uchun xabarlaringiz 'o'qilmagan' ko'rinishida turibdi). Moliyaviy va hisob-kitob masalalarini faqat o'zlari hal qiladilar. Shuni ma'lum qilamanki, men hozir blok rejimiga o'tdim va keyingi xabarlaringizga javob bera olmayman. Barcha ma'lumotlarni yozib oldim, bo'shashlari bilan o'zlari sizga aloqaga chiqadilar. 🤝",
+            "🤖 [Avto-javob]: Assalomu alaykum. Siz u kishining shaxsiy sun'iy intellekt yordamchisi bilan suhbatlashyapsiz (xabarlaringiz o'qilmagan bo'lib turishining sababi ham shu). Moliyaviy masalalarga aralashish huquqim yo'q. Dastur qoidasiga ko'ra, ushbu chatda ishlashni to'xtatdim va boshqa savollarga javob qaytarmayman. Xabaringiz o'zlariga yetkazildi, tez orada o'zlari bog'lanadilar. 🤝"
         ]
         
-        # Kompyuter ikkalasidan birini tasodifiy tanlab oladi
         tanlangan_javob = random.choice(blok_javoblari)
-        
         await event.reply(tanlangan_javob)
         bloklangan_chatlar.add(chat_id)
         
-        # Saved Messages'ga hisobot
-        await client.send_message('me', f"🚫 **MOLIYAVIY BLOK:** Diqqat! {toya_ism} (ID: {sender_id}) pul/hisob-kitob haqida yozgani uchun AI chatni blokladi. Kirib o'zingiz javob yozmaguningizcha AI bu chatga aralashmaydi.")
+        await client.send_message(LOG_CHAT_ID, f"🚫 **MOLIYAVIY BLOK:** {toya_ism} (ID: {sender_id}) pul haqida yozdi. Chat bloklandi. Blokni yechish uchun suhbat ichida `.ai_on` deb yozing.")
         return
 
-    # --- ODDIY AI SUHBATLAR UCHUN (12 SONIYA KUTISH) ---
+    # --- ODDIY AI SUHBAT ---
     hozirgi_vaqt = datetime.now(ZoneInfo("Asia/Tashkent"))
     if not (8 <= hozirgi_vaqt.hour < 20):
         return 
 
     await asyncio.sleep(12)
-
-    if oqilgan_xabarlar.get(chat_id, 0) >= xabar_id:
-        return
+    if oqilgan_xabarlar.get(chat_id, 0) >= xabar_id: return
 
     try:
         history = await client.get_messages(chat_id, limit=1)
-        if history and history[0].out:
-            return
-    except Exception:
-        pass
+        if history and history[0].out: return
+    except Exception: pass
 
     reply_matni = ""
     if event.is_reply:
@@ -233,10 +234,8 @@ async def handler(event):
 
     if sender_id not in suhbat_xotirasi:
         suhbat_xotirasi[sender_id] = []
-    
     suhbat_xotirasi[sender_id].append({"kim": "Foydalanuvchi", "matn": yangi_matn})
     suhbat_xotirasi[sender_id].append({"kim": "AI (Siz)", "matn": javob})
-
     if len(suhbat_xotirasi[sender_id]) > 20: 
         suhbat_xotirasi[sender_id] = suhbat_xotirasi[sender_id][-20:]
 
