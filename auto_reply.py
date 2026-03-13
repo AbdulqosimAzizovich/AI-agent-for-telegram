@@ -1,5 +1,6 @@
 import os
 import asyncio
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from aiohttp import web
@@ -37,9 +38,11 @@ bloklangan_chatlar = set() # Moliyaviy suhbat sababli AI aralashmaydigan chatlar
 suhbat_xotirasi = {}
 bot_is_active = True
 
+# --- XABAR O'QILGANDA BLOKNI YECHISH (Yangi mantiq) ---
 @client.on(events.MessageRead(inbox=True))
 async def read_handler(event):
     oqilgan_xabarlar[event.chat_id] = event.max_id
+
 
 def parse_ids(env_var_name):
     env_val = os.getenv(env_var_name, "")
@@ -52,7 +55,6 @@ BOSHLIQLAR = parse_ids("BOSHLIQLAR")
 
 # --- 2. AI ZAXIRA MANTIG'I ---
 async def get_ai_answer(yangi_xabar, sender_id, reply_matni):
-    # Dinamik uslubni belgilash
     if sender_id in YAQIN_DOSTLAR:
         uslub = "Sen mening o'rnimda eng yaqin do'stim bilan yozishyapsan. Juda qisqa, erkin, doimiy ravishda SENSIRAB (sen deb) va hazilkash ohangda javob ber. Hech qachon o'zingni AI deb tanitma."
     elif sender_id in DOSTLAR:
@@ -73,6 +75,7 @@ QAT'IY QOIDALAR:
 1. "Salom, qanday yordam bera olaman?" kabi gaplarni umuman yozma.
 2. Xabar qaysi tilda bo'lsa, xuddi shu tilda javob ber.
 3. Agar u shunchaki salomlashsa, faqat qisqa salom alik qil.
+4. MOLIYA: Agar maktubda raqamlar, pullar, narx yoki qandaydir miqdor haqida gap ketsa, hech qachon "Ha" deb rozi bo'lma va tasdiqlama.
 
 [Oxirgi xabarlar tarixi - suhbat dinamikasi uchun]:
 {tarix_matni}
@@ -113,22 +116,29 @@ async def handler(event):
     xabar_id = event.id
     sender = await event.get_sender()
     sender_id = event.sender_id
+    
+    # Suhbatdoshning ismini aniqlash (Hisobotlar uchun)
+    chat_info = await event.get_chat()
+    ism = getattr(chat_info, 'first_name', '') or ''
+    familiya = getattr(chat_info, 'last_name', '') or ''
+    toya_ism = f"{ism} {familiya}".strip() or "Noma'lum foydalanuvchi"
 
-    # --- O'ZINGIZ YOZGAN XABARLAR VA BLOKNI YECHISH ---
+    # --- O'ZINGIZ YOZGAN XABARLARDA BLOKNI YECHISH ---
     if event.out:
         if chat_id in bloklangan_chatlar:
             bloklangan_chatlar.remove(chat_id)
-            print(f"🔓 Chat (ID: {chat_id}) blokdan chiqarildi. Siz o'zingiz javob yozdingiz.")
+            # Saved Messages'ga blok yechilgani haqida hisobot:
+            await client.send_message('me', f"🔓 **BLOK YECHILDI:** Siz {toya_ism} (ID: {chat_id}) ga o'zingiz javob yozganingiz uchun, bu chatda AI yana ishga tushdi.")
 
         if event.text == '.uxla':
             bot_is_active = False
             await event.delete()
-            await client.send_message('me', "💤 Bot uxlash rejimiga o'tdi.")
+            await client.send_message('me', "💤 **Bot uxlash rejimiga o'tdi.** AI hozircha hech kimga aralashmaydi.")
             return
         elif event.text == '.uygon':
             bot_is_active = True
             await event.delete()
-            await client.send_message('me', "🚀 Bot uyg'ondi!")
+            await client.send_message('me', "🚀 **Bot uyg'ondi!** Avto-javoblar tizimi faollashdi.")
             return
         return
 
@@ -144,43 +154,43 @@ async def handler(event):
     # --- BOSHLIQLAR UCHUN (VIP Begonalar) ---
     if sender_id in BOSHLIQLAR:
         if sender_id not in javob_berilgan_boshliqlar:
-            print(f"👔 Boshliqdan xabar (ID: {sender_id}). Muloyim avto-javob yuborilmoqda...")
             await event.reply("Assalomu alaykum. Xabaringizni qabul qildim. Hozir biroz ish jarayonida edim, tez orada o'zim siz bilan bog'lanaman. Hurmat bilan!")
             javob_berilgan_boshliqlar.add(sender_id)
+            await client.send_message('me', f"👔 **Rahbariyat:** {toya_ism} (ID: {sender_id}) yozdi. Muloyim avto-javob yuborildi.")
         return
 
     # --- BEGONALAR UCHUN (Standart muloyim) ---
     if not getattr(sender, 'contact', False):
         if sender_id not in javob_berilgan_begonalar:
-            print(f"👤 Begona odamdan xabar (ID: {sender_id}). Standart avto-javob yuborilmoqda...")
             await event.reply("Assalomu alaykum. Xabaringizni ko'rdim. Bo'shashim bilan o'zim aloqaga chiqaman.")
             javob_berilgan_begonalar.add(sender_id)
+            await client.send_message('me', f"👤 **Begona:** {toya_ism} (ID: {sender_id}) yozdi. Standart avto-javob yuborildi.")
         return
 
     # --- KONTAKTLAR UCHUN MOLIYAVIY XAVFSIZLIK (20 SONIYA KUTISH) ---
-    moliyaviy_sozlar = ["pul", "qarz", "dollar", "so'm", "som", "kredit", "plastik", "karta", "payme", "click", "narx", "summa", "hisob", "avans", "oylik"]
+    moliyaviy_sozlar = ["pul", "qarz", "dollar", "so'm", "som", "kredit", "plastik", "karta", "payme", "click", "narx", "summa", "hisob", "avans", "oylik", "ming"]
     xabar_matni = event.text.lower()
-    is_finance = any(soz in xabar_matni for soz in moliyaviy_sozlar)
+    
+    is_finance = any(soz in xabar_matni for soz in moliyaviy_sozlar) or bool(re.search(r'\d+\s*k\b', xabar_matni))
 
     if is_finance:
-        print(f"⏳ Moliyaviy mavzu aniqlandi. 20 soniya kutilmoqda... (ID: {sender_id})")
         await asyncio.sleep(20)
         
         if oqilgan_xabarlar.get(chat_id, 0) >= xabar_id:
-            print("👁️ O'zingiz o'qidingiz. AI aralashmaydi.")
             return
             
         try:
             history = await client.get_messages(chat_id, limit=1)
             if history and history[0].out:
-                print("🛑 O'zingiz javob yozdingiz. AI to'xtadi.")
                 return
         except Exception:
             pass
             
-        print(f"🚫 20 soniya o'tdi. Chat bloklandi (ID: {chat_id}).")
-        await event.reply("🤖 [Avto-javob]: Assalomu alaykum. Men sun'iy intellekt yordamchisiman. Moliya, pul yoki hisob-kitob masalalari bo'yicha suhbatni davom ettira olmayman. Iltimos, bu masala yuzasidan bevosita telefon yoki SMS orqali aloqaga chiqing.")
+        await event.reply("🤖 [Avto-javob]: Assalomu alaykum. Men u kishining shaxsiy virtual yordamchisiman. Moliyaviy va hisob-kitob masalalariga aralashishga menga ruxsat berilmagan. Xabaringizni o'zlariga yetkazib qo'yaman va bo'shashlari bilan o'zlari sizga aloqaga chiqadilar. 🤝")
         bloklangan_chatlar.add(chat_id)
+        
+        # Saved Messages'ga blok haqida to'liq hisobot:
+        await client.send_message('me', f"🚫 **MOLIYAVIY BLOK:** Diqqat! {toya_ism} (ID: {sender_id}) pul/hisob-kitob haqida yozgani uchun AI chatni vaqtincha blokladi. Kirib o'zingiz javob yozmaguningizcha AI bu chatga aralashmaydi.")
         return
 
     # --- ODDIY AI SUHBATLAR UCHUN (12 SONIYA KUTISH) ---
@@ -188,7 +198,6 @@ async def handler(event):
     if not (8 <= hozirgi_vaqt.hour < 20):
         return 
 
-    print(f"\n📨 Yangi xabar keldi. 12 soniya kutilmoqda... ID: {sender_id}")
     await asyncio.sleep(12)
 
     if oqilgan_xabarlar.get(chat_id, 0) >= xabar_id:
@@ -207,12 +216,10 @@ async def handler(event):
         if eski_xabar and eski_xabar.text:
             reply_matni = f"\n[DIQQAT! Foydalanuvchi sizning mana bu eskirgan xabaringizga javob qaytaryapti: '{eski_xabar.text}']\n"
 
-    print("🤖 AI javob yozmoqda...")
     yangi_matn = event.text
     javob = await get_ai_answer(yangi_matn, sender_id, reply_matni)
     
     await event.reply(javob)
-    print("✅ AI javob yubordi!")
 
     if sender_id not in suhbat_xotirasi:
         suhbat_xotirasi[sender_id] = []
