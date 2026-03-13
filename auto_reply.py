@@ -1,6 +1,7 @@
 import os
 import asyncio
 import re
+import random
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from aiohttp import web
@@ -186,11 +187,20 @@ async def handler(event):
         except Exception:
             pass
             
-        await event.reply("🤖 [Avto-javob]: Assalomu alaykum. Men u kishining shaxsiy virtual yordamchisiman. Moliyaviy va hisob-kitob masalalariga aralashishga menga ruxsat berilmagan. Xabaringizni o'zlariga yetkazib qo'yaman va bo'shashlari bilan o'zlari sizga aloqaga chiqadilar. 🤝")
+        blok_javoblari = [
+            "Assalomu alaykum. Men u kishining virtual yordamchisiman (shu paytgacha men bilan yozishganingiz uchun xabarlaringiz 'o'qilmagan' ko'rinishida turibdi). Moliyaviy va hisob-kitob masalalarini faqat o'zlari hal qiladilar. Shuni ma'lum qilamanki, men hozir blok rejimiga o'tdim va keyingi xabarlaringizga javob bera olmayman. Barcha ma'lumotlarni yozib oldim, bo'shashlari bilan o'zlari sizga aloqaga chiqadilar. 🤝",
+            
+            "Assalomu alaykum. Siz u kishining shaxsiy sun'iy intellekt yordamchisi bilan suhbatlashyapsiz (xabarlaringiz o'qilmagan bo'lib turishining sababi ham shu). Moliyaviy masalalarga aralashish huquqim yo'q. Dastur qoidasiga ko'ra, ushbu chatda ishlashni to'xtatdim va boshqa savollarga javob qaytarmayman. Xabaringiz o'zlariga yetkazildi, tez orada o'zlari bog'lanadilar. 🤝"
+        ]
+        
+        # Kompyuter ikkalasidan birini tasodifiy tanlab oladi
+        tanlangan_javob = random.choice(blok_javoblari)
+        
+        await event.reply(tanlangan_javob)
         bloklangan_chatlar.add(chat_id)
         
-        # Saved Messages'ga blok haqida to'liq hisobot:
-        await client.send_message('me', f"🚫 **MOLIYAVIY BLOK:** Diqqat! {toya_ism} (ID: {sender_id}) pul/hisob-kitob haqida yozgani uchun AI chatni vaqtincha blokladi. Kirib o'zingiz javob yozmaguningizcha AI bu chatga aralashmaydi.")
+        # Saved Messages'ga hisobot
+        await client.send_message('me', f"🚫 **MOLIYAVIY BLOK:** Diqqat! {toya_ism} (ID: {sender_id}) pul/hisob-kitob haqida yozgani uchun AI chatni blokladi. Kirib o'zingiz javob yozmaguningizcha AI bu chatga aralashmaydi.")
         return
 
     # --- ODDIY AI SUHBATLAR UCHUN (12 SONIYA KUTISH) ---
