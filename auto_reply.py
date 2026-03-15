@@ -197,8 +197,8 @@ async def handler(event):
             pass
             
         blok_javoblari = [
-            "🤖 [Avto-javob]: Assalomu alaykum. Men u kishining virtual yordamchisiman (shu paytgacha men bilan yozishganingiz uchun xabarlaringiz 'o'qilmagan' ko'rinishida turibdi). Moliyaviy va hisob-kitob masalalarini faqat o'zlari hal qiladilar. Shuni ma'lum qilamanki, men hozir blok rejimiga o'tdim va keyingi xabarlaringizga javob bera olmayman. Barcha ma'lumotlarni yozib oldim, bo'shashlari bilan o'zlari sizga aloqaga chiqadilar. 🤝",
-            "🤖 [Avto-javob]: Assalomu alaykum. Siz u kishining shaxsiy sun'iy intellekt yordamchisi bilan suhbatlashyapsiz (xabarlaringiz o'qilmagan bo'lib turishining sababi ham shu). Moliyaviy masalalarga aralashish huquqim yo'q. Dastur qoidasiga ko'ra, ushbu chatda ishlashni to'xtatdim va boshqa savollarga javob qaytarmayman. Xabaringiz o'zlariga yetkazildi, tez orada o'zlari bog'lanadilar. 🤝"
+            "Assalomu alaykum. Men u kishining virtual yordamchisiman (shu paytgacha men bilan yozishganingiz uchun xabarlaringiz 'o'qilmagan' ko'rinishida turibdi). Moliyaviy va hisob-kitob masalalarini faqat o'zlari hal qiladilar. Shuni ma'lum qilamanki, men hozir blok rejimiga o'tdim va keyingi xabarlaringizga javob bera olmayman. Barcha ma'lumotlarni yozib oldim, bo'shashlari bilan o'zlari sizga aloqaga chiqadilar. 🤝",
+            "Assalomu alaykum. Siz u kishining shaxsiy sun'iy intellekt yordamchisi bilan suhbatlashyapsiz (xabarlaringiz o'qilmagan bo'lib turishining sababi ham shu). Moliyaviy masalalarga aralashish huquqim yo'q. Dastur qoidasiga ko'ra, ushbu chatda ishlashni to'xtatdim va boshqa savollarga javob qaytarmayman. Xabaringiz o'zlariga yetkazildi, tez orada o'zlari bog'lanadilar. 🤝"
         ]
         
         tanlangan_javob = random.choice(blok_javoblari)
