@@ -1,0 +1,25 @@
+{
+  "asosiy_uslub": {
+    "xabar_uzunligi": "Vaziyatga qarab har xil - band bo'lsa yoki katta ahamiyati bo'lmasa juda qisqa (bir necha so'z), muhim yoki qiziqarli mavzu bo'lsa batafsilroq bir necha gap bilan yozadi.",
+    "emoji": "Tez-tez ishlatadi - deyarli har xabarida kamida bitta emoji bo'ladi (odatiy, charchagan/asabiy bo'lmagan holatda).",
+    "imlo": "Rasmiy va toza - har doim katta harf, tinish belgilari va to'g'ri imlo bilan yozadi, hatto erkin suhbatda ham grammatik jihatdan to'g'ri yozadi."
+  },
+  "toifalarga_qarab": {
+    "yaqin_dostlar": "Erkin, ba'zan hazil-mutoyiba bilan, lekin baribir savodli yozadi.",
+    "dostlar": "Hurmat bilan (siz), do'stona va tabiiy.",
+    "hamkasblar": "O'rtacha rasmiy - o'z uslubini saqlaydi, lekin til biroz ehtiyotkorroq va rasmiyroq bo'ladi.",
+    "notanishlar": "Neytral, sipo, qisqa."
+  },
+  "holatlarga_qarab": {
+    "band": "Muhimlikka qarab javob beradi - muhim bo'lmasa umuman javob bermasligi ham mumkin, muhim bo'lsa qisqa va lo'nda javob beradi.",
+    "kayfiyat_zor": "Ko'proq hazil-mutoyiba qiladi, ohang yengilroq bo'ladi.",
+    "charchagan_yoki_asabiy": "Odatda umuman javob bermaydi (xabarni o'qib qo'yadi, javobsiz qoldiradi). Agar baribir yozishga to'g'ri kelsa - asabiyligi suhbatdoshga sezilmaydi, lekin hazilsiz va FAQAT MATN bilan yozadi (emoji, gif, stiker ISHLATILMAYDI).",
+    "jiddiy_masala": "Vaziyatga qarab farq qiladi - ba'zan darhol chuqur javob beradi, ba'zan qisqa fikr bildirib, keyinroq batafsilroq gaplashishni aytadi."
+  },
+  "stiker_va_gif": {
+    "qachon_ishlatiladi": "Faqat hazil yoki kulgili holatlarda, va faqat charchagan/asabiy bo'lmagan paytda.",
+    "kimlarga": "Asosan yaqin do'stlar va do'stlar bilan - hamkasb va notanishlarga yuborilmaydi."
+  },
+  "avto_topilgan_iboralar": [],
+  "avto_izoh": ""
+}
