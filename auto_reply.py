@@ -1,5 +1,6 @@
 import os
 import asyncio
+import json
 import re
 import random
 from datetime import datetime
@@ -62,6 +63,48 @@ DOSTLAR = parse_ids("DOSTLAR")
 ISHXONA = parse_ids("ISHXONA")
 BOSHLIQLAR = parse_ids("BOSHLIQLAR")
 
+# --- RAQAMLI MEN: PERSONA PROFILINI YUKLASH ---
+PERSONA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "persona.json")
+
+def _persona_yukla():
+    try:
+        with open(PERSONA_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _persona_matni_qur(persona):
+    if not persona:
+        return ""
+    qismlar = []
+    au = persona.get("asosiy_uslub", {})
+    if au:
+        qismlar.append(
+            f"- Xabar uzunligi: {au.get('xabar_uzunligi', '')}\n"
+            f"- Emoji: {au.get('emoji', '')}\n"
+            f"- Imlo/tinish belgilari: {au.get('imlo', '')}"
+        )
+    hq = persona.get("holatlarga_qarab", {})
+    if hq:
+        qismlar.append(
+            f"- Band bo'lganda: {hq.get('band', '')}\n"
+            f"- Kayfiyati zo'r bo'lganda: {hq.get('kayfiyat_zor', '')}\n"
+            f"- Charchagan/asabiy bo'lganda: {hq.get('charchagan_yoki_asabiy', '')}\n"
+            f"- Jiddiy masala bo'lganda: {hq.get('jiddiy_masala', '')}"
+        )
+    sg = persona.get("stiker_va_gif", {})
+    if sg:
+        qismlar.append(
+            f"- Stiker/gif qachon: {sg.get('qachon_ishlatiladi', '')} ({sg.get('kimlarga', '')})"
+        )
+    iboralar = persona.get("avto_topilgan_iboralar", [])
+    if iboralar:
+        qismlar.append("- Tez-tez ishlatadigan iboralar: " + ", ".join(iboralar))
+    return "\n".join(qismlar)
+
+PERSONA = _persona_yukla()
+PERSONA_MATNI = _persona_matni_qur(PERSONA)
+
 # --- 2. AI MIYASI VA YORDAMCHI PERSONASI ---
 async def get_ai_answer(yangi_xabar, sender_id, tarix_matni):
     if sender_id in YAQIN_DOSTLAR:
@@ -73,15 +116,17 @@ async def get_ai_answer(yangi_xabar, sender_id, tarix_matni):
     else:
         toifa_matni = "Oddiy tanish. USLUB: Neytral, sipo, qisqa."
 
+    persona_qismi = f"\n[SENING (ABDULQOSIMNING) YOZISH USLUBI VA XARAKTERING]:\n{PERSONA_MATNI}\n" if PERSONA_MATNI else ""
+
     prompt = f"""Sen Abdulqosimning Telegramdagi shaxsiy virtual yordamchisisan.
 Hozirgi paytda u: {current_mood}.
 Suhbatlashayotgan odam toifasi: {toifa_matni}
-
+{persona_qismi}
 QAT'IY QOIDALAR (Buzish taqiqlanadi):
-1. Birinchi marta yozayotganlarga o'zingni 'Abdulqosimning yordamchisi' deb tanishtir.
-2. Shundan so'ng, suhbatni Abdulqosimning o'rniga (birinchi shaxsda) davom ettir, uning joriy holatiga (bandlik/kayfiyat) moslash!
+1. Birinchi marta yozayotganlarga xabaringni IKKI QISMDAN tuz: (a) avval bir necha so'zda o'zingni 'Abdulqosimning yordamchisi' deb tanishtir, (b) SHUNDAN SO'NG, XUDDI SHU XABARNING ICHIDA suhbatdoshning savoliga/salomiga ham tabiiy javob ber (masalan "qandaysiz" desa — javob qaytar). Faqat tanishtiruv bilan to'xtab qolma, suhbat davom etishi kerak.
+2. Tanishtiruvdan keyingi barcha xabarlarda, suhbatni Abdulqosimning o'rniga (birinchi shaxsda) davom ettir, uning joriy holatiga (bandlik/kayfiyat) va yuqoridagi yozish uslubiga moslash!
 3. Agar suhbatdosh shubhalanib seni haqiqiy ekanligini (yani seni egang) tasdiqlovchi savollar so'rashsa, darhol yordamchi ekaningni ayt va shunday tushuntir: "Men yordamchiman. Abdulqosim o'zi kirib o'qiganini xabardagi ikkita ptichka (read status) orqali bilib olasiz. Hozircha faqat bitta ptichka turibdi."
-4. Emojilarni deyarli ishlatma, suhbatni qisqa (1-6 so'z) ushlab tur.
+4. Suhbatni qisqa va tabiiy ushlab tur, lekin savolga to'liq javob bermay qisqartirib yubormaslik kerak - tabiiylik muhimroq.
 5. Moliyaviy savol bo'lsa darhol uzr so'rab, xabarni Abdulqosimga yetkazishingni ayt. Hech qanday va'da berma.
 6. ZAXIRA QOIDA: Aniq sana, vaqt, joy, summa yoki har qanday majburiyatni O'Z NOMIDAN HECH QACHON tasdiqlama va va'da berma — hatto yuqoridagi filtr bu xabarni "oddiy suhbat" deb hisoblagan bo'lsa ham. Bunday holatda "buni Abdulqosimning o'zi hal qiladi, tez orada aloqaga chiqadi" deb qisqa javob ber.
 
